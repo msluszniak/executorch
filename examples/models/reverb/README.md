@@ -4,7 +4,8 @@ This example exports [Reverb-TTS](https://huggingface.co/software-mansion/Reverb
 a 297M-parameter voice-cloning text-to-speech model for English, German,
 French, Spanish, Italian, Polish and Portuguese, to two ExecuTorch programs. A
 native runner then speaks text in a preset voice, or in a voice cloned from a
-few seconds of speech, on the MLX (Apple silicon GPU) or XNNPACK (CPU) backend.
+few seconds of speech, on the MLX (Apple silicon GPU), XNNPACK (CPU) or Vulkan
+(Android GPU) backend.
 
 Reverb is a masked-diffusion model: it fills a grid of audio-codec tokens over
 several passes, conditioned on the text and on a reference voice's codec
@@ -71,9 +72,12 @@ Choose the backend, and optionally quantize the backbone's decoder layers:
 |---|---|---|
 | `mlx` | fp16 | `4w`, `8w` |
 | `xnnpack` | fp32 | `8da4w`, `8da8w` |
+| `vulkan` | fp16 | none |
 | `portable` | fp32 | none |
 
-The codec stays fp32 unless you pass `--codec-dtype fp16`. The default bounds
+The codec stays fp32 unless you pass `--codec-dtype fp16`. With `--backend vulkan`
+the codec is exported for XNNPACK, since its long 1-D convolutions exceed
+Vulkan's texture limits. The default bounds
 take prompts of up to 512 tokens, references of up to 512 frames (20.5 s) and
 takes of up to 1024 frames (41 s); change them with `--max-prompt-tokens`,
 `--max-reference-frames` and `--max-target-frames`. Treat PTE files as trusted
@@ -84,10 +88,31 @@ inputs: load only a PTE that you generated or obtained from a trusted source.
 ```bash
 make reverb-mlx      # macOS: MLX and XNNPACK
 make reverb-cpu      # XNNPACK
+make reverb-vulkan   # Linux: Vulkan and XNNPACK
 ```
 
 The runner is written to `cmake-out/examples/models/reverb/reverb_runner`; the
 MLX build places `mlx.metallib` beside it.
+
+To run on an Android device, cross-compile ExecuTorch and the runner with the
+NDK, then push the runner, `libexecutorch_vulkan_shared_runtime.so` and the
+files it reads with `adb`:
+
+```bash
+cmake --preset llm -B cmake-out-android \
+  -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK}/build/cmake/android.toolchain.cmake" \
+  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28 \
+  -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=cmake-out-android \
+  -DEXECUTORCH_BUILD_VULKAN=ON
+cmake --build cmake-out-android -j --target install
+cmake -S examples/models/reverb -B cmake-out-android/examples/models/reverb \
+  -DCMAKE_TOOLCHAIN_FILE="${ANDROID_NDK}/build/cmake/android.toolchain.cmake" \
+  -DANDROID_ABI=arm64-v8a -DANDROID_PLATFORM=android-28 \
+  -DCMAKE_BUILD_TYPE=Release \
+  -DCMAKE_PREFIX_PATH="${PWD}/cmake-out-android" \
+  -DCMAKE_FIND_ROOT_PATH="${PWD}/cmake-out-android"
+cmake --build cmake-out-android/examples/models/reverb -j --target reverb_runner
+```
 
 ## 4. Speak in a preset voice
 

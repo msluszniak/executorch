@@ -33,12 +33,16 @@ from ..model.backbone import ReverbBackbone
 from ..model.codec import CodecDecoder, CodecEncoder
 from ..model.config import CODEBOOKS, MASK
 
-BACKENDS = ("mlx", "xnnpack", "portable")
+BACKENDS = ("mlx", "xnnpack", "vulkan", "portable")
 DTYPES = {"fp32": torch.float32, "fp16": torch.float16}
-DEFAULT_DTYPE = {"mlx": "fp16", "xnnpack": "fp32", "portable": "fp32"}
+DEFAULT_DTYPE = {"mlx": "fp16", "xnnpack": "fp32", "vulkan": "fp16", "portable": "fp32"}
+# Vulkan's texture limits cannot hold the codec's long 1-D convolutions, so a
+# Vulkan backbone pairs with an XNNPACK codec.
+CODEC_BACKEND = {"vulkan": "xnnpack"}
 QLINEAR = {
     "mlx": ("4w", "8w"),
     "xnnpack": ("8da4w", "8da8w"),
+    "vulkan": (),
     "portable": (),
 }
 POLISH_BIAS = 1.0  # attention bias towards the reference frames in the polish passes
@@ -178,6 +182,12 @@ def _partitioners(backend: str, methods):
             name: [XnnpackDynamicallyQuantizedPartitioner(), XnnpackPartitioner()]
             for name in methods
         }
+    if backend == "vulkan":
+        from executorch.backends.vulkan.partitioner.vulkan_partitioner import (
+            VulkanPartitioner,
+        )
+
+        return {name: [VulkanPartitioner()] for name in methods}
     return {name: [] for name in methods}
 
 
@@ -301,7 +311,7 @@ def main() -> None:
         codec = load_codec(args.codec_dir)
         program = lower(
             export_codec(codec, bounds, DTYPES[args.codec_dtype]),
-            args.backend,
+            CODEC_BACKEND.get(args.backend, args.backend),
             codec_metadata(bounds),
         )
         save_pte(program, output_dir / "codec.pte")

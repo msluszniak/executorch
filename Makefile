@@ -22,7 +22,7 @@
 # - nemotron3-diarization: Speaker diarization model (MLX, XNNPACK, CUDA, Vulkan)
 # - phonon:   Text-to-speech model (XNNPACK, CUDA, MLX, Vulkan)
 # - supertonic: Text-to-speech model (MLX)
-# - reverb:   Voice-cloning text-to-speech model (MLX, CPU)
+# - reverb:   Voice-cloning text-to-speech model (MLX, CPU, Vulkan)
 # - silero_vad: Voice activity detection model (CPU)
 # - llama:    Text generation model (CPU)
 # - llava:    Vision + language model (CPU)
@@ -95,7 +95,7 @@
 #
 # ==============================================================================
 
-.PHONY: voxtral-cuda voxtral-cpu voxtral-metal voxtral-mlx voxtral_realtime-cuda voxtral_realtime-rocm voxtral_realtime-cpu voxtral_realtime-metal voxtral_realtime-mlx voxtral_tts-cpu voxtral_tts-cuda whisper-cuda whisper-cuda-debug whisper-cpu whisper-metal parakeet-cuda parakeet-cuda-debug parakeet-cpu parakeet-metal parakeet-mlx parakeet-vulkan dinov2-cuda dinov2-cuda-debug sortformer-cuda sortformer-cpu supertonic-mlx reverb-mlx reverb-cpu silero-vad-cpu llama-cuda llama-cuda-debug llama-cpu lfm_2_5-mlx llava-cpu gemma3-cuda gemma3-cpu gemma4_31b-cuda gemma4_31b-mlx muse-glimmer-cuda muse-glimmer-mlx qwen3_5_moe-cuda qwen3_5_moe-metal qwen3_5_moe-mlx clean help
+.PHONY: voxtral-cuda voxtral-cpu voxtral-metal voxtral-mlx voxtral_realtime-cuda voxtral_realtime-rocm voxtral_realtime-cpu voxtral_realtime-metal voxtral_realtime-mlx voxtral_tts-cpu voxtral_tts-cuda whisper-cuda whisper-cuda-debug whisper-cpu whisper-metal parakeet-cuda parakeet-cuda-debug parakeet-cpu parakeet-metal parakeet-mlx parakeet-vulkan dinov2-cuda dinov2-cuda-debug sortformer-cuda sortformer-cpu supertonic-mlx reverb-mlx reverb-cpu reverb-vulkan silero-vad-cpu llama-cuda llama-cuda-debug llama-cpu lfm_2_5-mlx llava-cpu gemma3-cuda gemma3-cpu gemma4_31b-cuda gemma4_31b-mlx muse-glimmer-cuda muse-glimmer-mlx qwen3_5_moe-cuda qwen3_5_moe-metal qwen3_5_moe-mlx clean help
 
 .PHONY: llama-vulkan
 
@@ -137,6 +137,7 @@ help:
 	@echo "  supertonic-mlx      - Build Supertonic runner with MLX backend"
 	@echo "  reverb-mlx          - Build Reverb-TTS runner with MLX and XNNPACK backends"
 	@echo "  reverb-cpu          - Build Reverb-TTS runner with XNNPACK backend"
+	@echo "  reverb-vulkan       - Build Reverb-TTS runner with Vulkan and XNNPACK backends"
 	@echo "  silero-vad-cpu      - Build Silero VAD runner with CPU backend"
 	@echo "  llama-cuda          - Build Llama runner with CUDA backend"
 	@echo "  llama-cuda-debug    - Build Llama runner with CUDA backend (debug mode)"
@@ -387,6 +388,15 @@ reverb-cpu:
 	cmake --workflow --preset llm-release
 	@echo "==> Building Reverb-TTS runner (CPU)..."
 	cd examples/models/reverb && cmake --workflow --preset reverb-cpu
+	@echo ""
+	@echo "✓ Build complete!"
+	@echo "  Binary: cmake-out/examples/models/reverb/reverb_runner"
+
+reverb-vulkan:
+	@echo "==> Building and installing ExecuTorch with Vulkan..."
+	cmake --workflow --preset llm-release-vulkan
+	@echo "==> Building Reverb-TTS runner with Vulkan..."
+	cd examples/models/reverb && cmake --workflow --preset reverb-vulkan
 	@echo ""
 	@echo "✓ Build complete!"
 	@echo "  Binary: cmake-out/examples/models/reverb/reverb_runner"
